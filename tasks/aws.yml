@@ -1,0 +1,35 @@
+---
+
+###################################################################################################
+
+- name: aws | install awscli apt package
+
+  apt: name={{ awscli_apt_pkg }}
+
+  when: ansible_os_family | lower == 'debian'
+
+###################################################################################################
+
+- name: aws | get awscli from source
+
+  get_url: url={{ awscli_url }} dest=/tmp/awscli-bundle.zip
+
+  when: ansible_os_family | lower == 'redhat'
+
+- name: aws | unzip awscli from source
+
+  command: unzip /tmp/awscli-bundle.zip 
+           chdir=/tmp
+         creates=/tmp/awscli-bundle
+
+  when: ansible_os_family | lower == 'redhat'
+
+- name: aws | build awscli from source
+
+  command: ./install -i {{ awscli_dir }} -b {{ awscli_bin }}
+           chdir=/tmp/awscli-bundle
+         creates={{ awscli_bin }}
+
+  when: ansible_os_family | lower == 'redhat'
+
+###################################################################################################

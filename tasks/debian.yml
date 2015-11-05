@@ -1,0 +1,22 @@
+
+### package ######################################################################################
+
+- name: redhat | package install
+
+  yum: name={{ item }} state=present
+
+  with_items: keepalive_dependencies
+
+  tags: 
+    - keepalived
+    - debian
+
+### firewall port #################################################################################
+
+- name: redhat | allow vrrp through host firewall
+
+  ufw: port={{ keepalived_vrrp_port }} proto=any rule=allow
+
+  tags: 
+    - keepalived
+    - debian

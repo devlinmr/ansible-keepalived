@@ -1,0 +1,50 @@
+
+### package ######################################################################################
+
+- name: redhat | package install
+
+  yum: name={{ item }} state=latest
+
+  with_items: keepalive_dependencies
+
+  tags: 
+    - keepalived
+    - redhat
+
+### firewall port #################################################################################
+
+### firewalld #####################################################################################
+
+- name: redhat | firewalld package
+
+  yum: name=firewalld state=present
+
+  when: ansible_distribution_version.split('.')[0] | int >= 7
+
+  tags: 
+    - keepalived
+    - redhat
+
+- name: redhat | allow vrrp through host firewall firewalld
+
+  firewalld: port={{ keepalived_vrrp_port }}/any state=enabled permanent=true
+
+  when: ansible_distribution_version.split('.')[0] | int >= 7
+
+  tags: 
+    - keepalived
+    - redhat
+
+### iptables ######################################################################################
+
+- name: redhat | allow vrrp through host firewall iptables
+
+  shell: "/sbin/iptables -A INPUT -p {{ keepalived_vrrp_port }} -j ACCEPT && service iptables save"
+
+  changed_when: false
+
+  when: ansible_distribution_version.split('.')[0] | int <= 6
+
+  tags: 
+    - keepalived
+    - redhat

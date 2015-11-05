@@ -1,0 +1,54 @@
+
+! {{ ansible_managed }}
+
+! Configuration File for keepalived
+
+global_defs {
+   notification_email {
+     {% for recipient in keepalived_smtp_to %}
+        {{ recipient }}
+     {% endfor %}
+   }
+   notification_email_from {{ ansible_hostname }}@{{ ansible_fqdn }}
+   smtp_server {{ keepalived_smtp_host }}
+   smtp_connect_timeout {{ keepalived_smtp_timeout }}
+
+   lvs_id keepalived_{{ ansible_hostname }}
+}
+
+{% for item in keepalived_services %}
+vrrp_instance {{ item.name }} {
+    state {{ item.initial_state | default('MASTER') }}
+    interface {{ item.interface | default('eth0') }}
+    virtual_router_id {{ item.vrr_id | default('51') }}
+{% if keepalived_notify_services is defined and not on_aws %}
+    notify {{ keepalived_conf_dir }}/keepalived_notify.sh
+{% endif %}
+    priority {{ item.priority | default('100') }}
+{% if keepalived_unicast_peers != 'none' %}
+    unicast_src_ip {{ ansible_default_ipv4.address }}
+    unicast_peer {
+{% for keepalived_peer in keepalived_unicast_peers %}
+{% set interface = 'ansible_' + item.interface %}
+      {{ keepalived_peer }}
+{% endfor %}
+    }
+{% endif %}
+    advert_int 1
+    authentication {
+      auth_type {{ keepalived_auth_type | default('PASS') }}
+      auth_pass {{ keepalived_auth_pass | default('1111') }}
+    }
+    virtual_ipaddress {
+{% for vip in item.vips %}
+      {{ vip }}
+{% endfor %}
+    }
+{% if on_aws is defined and on_aws %}
+    notify_master "/etc/keepalived/ec2_master.sh master"
+    notify_stop "/etc/keepalived/ec2_master.sh backup"
+    notify_fault "/etc/keepalived/ec2_master.sh backup"
+    notify_backup "/etc/keepalived/ec2_master.sh backup"
+{% endif %}
+}
+{% endfor %}

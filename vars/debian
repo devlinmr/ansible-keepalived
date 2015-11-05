@@ -1,0 +1,5 @@
+
+keepalive_dependencies:
+
+  - keepalived
+  - ufw

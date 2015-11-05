@@ -1,0 +1,40 @@
+---
+
+### Pre-reqs ######################################################################################
+
+package:
+
+   keepalived     : present
+
+### Defaults ######################################################################################
+
+keepalived_enabled   : true
+
+keepalived_service   : keepalived
+
+keepalived_conf_dir  : /etc/keepalived
+keepalived_conf_file : "{{ keepalived_conf_dir }}/keepalived.conf"
+
+keepalived_vrrp_port : 112
+
+keepalived_instance  : 1
+
+### SMTP service ##################################################################################
+
+keepalived_smtp_host    : localhost
+keepalived_smtp_timeout : 30
+
+keepalived_smtp_to      : [ 'root@localhost' ]
+
+### Auth service ##################################################################################
+
+keepalived_auth_type : PASS
+keepalived_auth_pass : 1111
+
+### VIP service ##################################################################################
+
+keepalived_services     : []
+
+keepalived_unicast_ip   : "{{ ansible_default_ipv4.address }}"
+
+keepalived_unicast_peers: none

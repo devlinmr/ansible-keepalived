@@ -1,0 +1,23 @@
+#!/bin/sh
+##
+## {{ ansible_managed }}
+##
+
+TYPE=$1
+NAME=$2
+STATE=$3
+
+# We only handle master- it is up to dependent services to stop keepalived
+case $STATE in
+        "MASTER") {% for item in keepalived_notify_services %}/etc/init.d/{{ item }} start
+                  {% endfor %}
+                  exit 0
+                  ;;
+        "BACKUP") exit 0
+                  ;;
+        "FAULT")  exit 0
+                  ;;
+        *)        echo "unknown state"
+                  exit 1
+                  ;;
+esac

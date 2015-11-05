@@ -1,0 +1,146 @@
+---
+
+### platform include ##############################################################################
+
+- name: import
+
+  include_vars: '{{ ansible_os_family | lower }}'
+
+  tags: 
+    - keepalived
+
+- name: debian
+
+  when: ansible_os_family | lower == 'debian'
+
+  include: debian.yml
+
+  tags: 
+    - keepalived
+    - redhat
+
+- name: redhat
+
+  when: ansible_os_family | lower == 'redhat'
+
+  include: redhat.yml
+
+  tags: 
+    - keepalived
+    - debian
+
+### for AWS #######################################################################################
+
+- name: keepalived | get EC2 instance facts
+
+  action: ec2_facts
+
+  when: on_aws
+
+  tags: 
+    - keepalived
+
+### swapover file #################################################################################
+
+- name: keepalived | configure failover script
+
+  template: src=etc/keepalived/ec2_master.sh.j2
+           dest={{ keepalived_conf_dir }}/ec2_master.sh
+          owner=root
+          group=root
+           mode=0750
+
+  register : result
+
+  when: on_aws
+
+  tags: 
+    - keepalived
+
+### kernel parameters #############################################################################
+
+- name: keepalived | configure kernel
+
+  lineinfile: dest=/etc/sysctl.conf
+            regexp="^net.ipv4.ip_nonlocal_bind"
+              line="net.ipv4.ip_nonlocal_bind=1"
+
+  register : sysctl
+
+  tags: 
+    - keepalived
+
+- name: keepalived | kernel restart
+
+  command: /sbin/sysctl -e -p
+
+  when: sysctl.changed
+
+  tags: 
+    - keepalived
+
+### check for unicast enabled version #############################################################
+
+- name: keepalived | check keepalived version
+
+  command: "keepalived --version"
+  
+  register: keepalived_version
+
+  failed_when: "{{ keepalived_version.stdout | version_compare('1.2.8', '>=') }}"
+  
+  when: keepalived_unicast_peers != 'none'
+
+### configuration file ############################################################################
+
+- name: keepalived | configure keepalived.conf
+
+  template: src=etc/keepalived/keepalived.conf.j2
+           dest={{ keepalived_conf_dir }}/keepalived.conf
+          owner=root
+          group=root
+           mode=0640
+
+  register : result
+
+  tags: 
+    - keepalived
+
+### notify script #################################################################################
+
+- name: keepalived | notify script
+
+  template: src=etc/keepalived/keepalived_notify.sh.j2
+           dest={{ keepalived_conf_dir }}/keepalived_notify.sh
+          owner=root
+          group=root
+           mode=0750
+
+  when: keepalived_notify_services is defined and keepalived_haproxy is defined
+
+  tags: 
+    - keepalived
+
+### service #######################################################################################
+
+- name: keepalived | enable
+
+  service: name={{ keepalived_service }}
+        enabled={{ keepalived_enabled }}
+
+  when: keepalived_enabled
+
+  tags: 
+    - keepalived
+
+- name: keepalived | restart
+
+  service: name={{ keepalived_service }}
+          state={% if keepalived_enabled %}restarted{% endif %}
+
+  when: result.changed
+
+  tags: 
+    - keepalived
+
+###################################################################################################

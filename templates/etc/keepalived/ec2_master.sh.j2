@@ -1,0 +1,47 @@
+#!/bin/bash
+##
+## {{ ansible_managed }}
+##
+
+export AWS_DEFAULT_REGION={{ aws_region }}
+
+export EC2_URL="https://ec2.${AWS_DEFAULT_REGION}.amazonaws.com:443/"
+
+{% for item in keepalived_services %}
+VIPS="{% for vip in item.vips %}{{ vip }} {% endfor %}"
+VIP_MASK={{ haproxy_ip_address_mask | default('255.255.255.0' )}}
+{% endfor %}
+
+export INSTANCE_ID={{ ansible_ec2_instance_id }}
+export ENI=`/usr/local/bin/aws ec2 describe-instances --instance-id $INSTANCE_ID | grep NetworkInterfaceId -m 1 | awk '{print $2}' | awk -F\" '{print $2}'`
+
+master() {
+  SUB_INT=1
+  /usr/local/bin/aws ec2 assign-private-ip-addresses --network-interface-id ${ENI} --private-ip-addresses ${VIPS} --allow-reassignment
+  for VIP in ${VIPS}; do
+{% for item in keepalived_services %}
+    ifconfig {{ item.interface }}:${SUB_INT} ${VIP} netmask ${VIP_MASK}
+{% endfor %}
+    let SUB_INT+=1
+  done
+}
+
+backup() {
+  SUB_INT=1
+  for VIP in ${VIPS}; do
+{% for item in keepalived_services %}
+    ifconfig {{ item.interface }}:${SUB_INT} down
+{% endfor %}
+    let SUB_INT+=1
+  done
+}
+
+if [[ "$#" -gt 0 ]]; then
+  ACTION=$1
+fi
+
+[ $ACTION ] || ACTION="master"
+NOW=$(date +"%F %T")
+echo "${NOW} Action ${ACTION} invoked" >> /tmp/keepalived.log
+
+$ACTION && exit 0
